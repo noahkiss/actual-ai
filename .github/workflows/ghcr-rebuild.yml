@@ -1,0 +1,73 @@
+name: Rebuild GHCR image on new @actual-app/api
+
+on:
+  schedule:
+    - cron: '30 8 * * *' # daily at 08:30 UTC
+  workflow_dispatch:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check for new @actual-app/api version
+        id: check
+        run: |
+          CURRENT=$(node -e "const l=require('./package-lock.json'); console.log(l.packages['node_modules/@actual-app/api'].version)")
+          LATEST=$(npm view @actual-app/api dist-tags.latest)
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" != "$LATEST" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@actual-app/api $CURRENT -> $LATEST"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::@actual-app/api $CURRENT is up to date"
+          fi
+
+      - name: Update lockfile
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          npm update @actual-app/api
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --cached --quiet || git commit -m "chore: update @actual-app/api to ${{ steps.check.outputs.latest }}"
+          git push
+
+      - name: Set up QEMU
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/actual-ai:latest
+            ghcr.io/${{ github.repository_owner }}/actual-ai:api-${{ steps.check.outputs.latest }}
