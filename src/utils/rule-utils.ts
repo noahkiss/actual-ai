@@ -1,5 +1,5 @@
-import { APICategoryEntity, APICategoryGroupEntity, APIPayeeEntity } from '@actual-app/api/@types/loot-core/src/server/api-models';
-import { RuleEntity } from '@actual-app/api/@types/loot-core/src/types/models';
+import { APICategoryEntity, APICategoryGroupEntity, APIPayeeEntity } from '@actual-app/core/server/api-models';
+import { RuleEntity } from '@actual-app/core/types/models';
 import { RuleDescription } from '../types';
 
 /**
@@ -42,7 +42,7 @@ export function transformRulesToDescriptions(
         };
 
         if (c.field === 'payee' && c.type === 'id') {
-          condition.value = resolvePayeeValue(c.value);
+          condition.value = resolvePayeeValue(c.value as string | string[]);
         } else {
           condition.value = typeof c.value === 'object' ? (c.value as string[]) : String(c.value);
         }

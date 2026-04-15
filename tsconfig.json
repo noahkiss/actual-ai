@@ -7,6 +7,10 @@
     "strict": true,
     "skipLibCheck": true,
     "lib": ["es2020"],
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@actual-app/core/*": ["src/types/actual-core-shims.d.ts"]
+    }
   }
 }
