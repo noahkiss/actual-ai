@@ -57,8 +57,12 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN cannot push here: the GHCR package is not linked to this repo, and it
+          # cannot be linked -- the org.opencontainers.image.source label does not auto-link a
+          # package owned by a fork, and the "Manage Actions access" picker does not list forks.
+          # GHCR_PAT is a classic PAT scoped to write:packages only.
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push
         if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
