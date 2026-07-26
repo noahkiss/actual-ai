@@ -68,10 +68,13 @@ services:
   actual-ai:
     image: docker.io/sakowicz/actual-ai:latest
     restart: unless-stopped
+    depends_on:
+      actual_server:
+        condition: service_healthy
     environment:
       ACTUAL_SERVER_URL: http://actual_server:5006
       ACTUAL_PASSWORD: your_actual_password
-      ACTUAL_BUDGET_ID: your_actual_budget_id # This is the ID from Settings → Show advanced settings → Sync ID
+      ACTUAL_BUDGET_ID: your_actual_budget_sync_id # This is the ID from Settings → Show advanced settings → Sync ID
       CLASSIFICATION_SCHEDULE_CRON: 0 */4 * * * # How often to run classification.
       LLM_PROVIDER: openai # Can be "openai", "openrouter", "anthropic", "google-generative-ai", "ollama" or "groq"
       FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "freeWebSearch", "suggestNewCategories"]'
@@ -125,6 +128,21 @@ Available features:
 - `dryRun` - Run in dry run mode (enabled by default)
 - `rerunMissedTransactions` - Re-process transactions previously marked as unclassified
 - `disableRateLimiter` - Disable Rate Limiter
+
+## Rate Limit Overrides
+
+By default each provider gets a conservative request/token-per-minute limit. You can override these per deployment with two environment variables — useful when your plan's actual limits differ from the built-in defaults (e.g. Google AI Free Tier sits well below the default 300 RPM):
+
+- `REQUESTS_PER_MINUTE` — proactive request-per-minute cap
+- `TOKENS_PER_MINUTE` — proactive token-per-minute cap
+
+Each variable supports three states:
+
+- **unset** (or empty) — fall back to the built-in provider default
+- **`0`** — disable that axis of proactive rate limiting (the provider's own 429 responses still drive reactive backoff)
+- **positive number** — use as the custom limit
+
+To turn off rate limiting entirely, add `disableRateLimiter` to your `FEATURES` array instead.
 
 ## OpenRouter Tool Calling
 

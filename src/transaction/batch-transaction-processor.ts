@@ -1,8 +1,8 @@
 import {
   RuleEntity,
   TransactionEntity,
-} from '@actual-app/core/types/models';
-import { APIPayeeEntity } from '@actual-app/core/server/api-models';
+} from '@actual-app/core/src/types/models';
+import { APIPayeeEntity } from '@actual-app/core/src/server/api-models';
 import {
   APICategoryEntity, APICategoryGroupEntity,
 } from '../types';

@@ -1,5 +1,5 @@
-import { APICategoryEntity, APICategoryGroupEntity, APIPayeeEntity } from '@actual-app/core/server/api-models';
-import { RuleEntity } from '@actual-app/core/types/models';
+import { APICategoryEntity, APICategoryGroupEntity, APIPayeeEntity } from '@actual-app/core/src/server/api-models';
+import { RuleEntity } from '@actual-app/core/src/types/models';
 import { RuleDescription } from '../types';
 
 /**
@@ -10,12 +10,19 @@ export function transformRulesToDescriptions(
   categories: (APICategoryEntity | APICategoryGroupEntity)[],
   payees: APIPayeeEntity[] = [],
 ): RuleDescription[] {
-  return rules.map((rule) => {
+  return rules.filter((rule) => rule.actions.some(
+    (action) => 'field' in action && action.field === 'category' && action.op === 'set',
+  )).map((rule) => {
     const categoryAction = rule.actions.find(
       (action) => 'field' in action && action.field === 'category' && action.op === 'set',
     );
     const categoryId = categoryAction?.value as string | undefined;
     const category = categories.find((c) => 'id' in c && c.id === categoryId);
+
+    let categoryName: string;
+    if (category && 'name' in category) categoryName = category.name;
+    else if (!categoryId) categoryName = 'leave uncategorized';
+    else categoryName = 'unknown';
 
     // Improved payee resolution with clean JSON structure
     const resolvePayeeValue = (value: string | string[]) => {
@@ -42,18 +49,18 @@ export function transformRulesToDescriptions(
         };
 
         if (c.field === 'payee' && c.type === 'id') {
-          condition.value = resolvePayeeValue(c.value as string | string[]);
+          condition.value = resolvePayeeValue(c.value);
         } else {
           condition.value = typeof c.value === 'object' ? (c.value as string[]) : String(c.value);
         }
 
         return condition;
       }),
-      categoryName: category && 'name' in category ? category.name : 'unknown',
+      categoryName,
       categoryId: categoryId ?? '',
       ruleName: 'name' in rule ? rule.name as string : 'Unnamed rule',
     };
-  }).filter((r) => r.categoryId);
+  });
 }
 
 export default { transformRulesToDescriptions };

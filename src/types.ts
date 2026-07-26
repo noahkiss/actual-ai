@@ -4,10 +4,10 @@ import {
   APICategoryEntity as ImportedAPICategoryEntity,
   APICategoryGroupEntity as ImportedAPICategoryGroupEntity,
   APIPayeeEntity,
-} from '@actual-app/core/server/api-models';
+} from '@actual-app/core/src/server/api-models';
 import {
   TransactionEntity, RuleEntity, CategoryEntity, CategoryGroupEntity,
-} from '@actual-app/core/types/models';
+} from '@actual-app/core/src/types/models';
 
 export type APICategoryEntity = ImportedAPICategoryEntity | CategoryEntity;
 export type APICategoryGroupEntity = ImportedAPICategoryGroupEntity | CategoryGroupEntity;

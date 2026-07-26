@@ -3,9 +3,9 @@ import {
   APICategoryEntity,
   APICategoryGroupEntity,
   APIPayeeEntity,
-} from '@actual-app/core/server/api-models';
+} from '@actual-app/core/src/server/api-models';
 import path from 'path';
-import { TransactionEntity, RuleEntity } from '@actual-app/core/types/models';
+import { TransactionEntity, RuleEntity } from '@actual-app/core/src/types/models';
 import { ActualApiServiceI } from './types';
 
 function isErrnoException(error: unknown): error is Error & { code?: string } {
@@ -223,6 +223,10 @@ class ActualApiService implements ActualApiServiceI {
   }
 
   public async runBankSync(): Promise<void> {
+    if (this.isDryRun) {
+      console.log('DRY RUN: Would run bank sync');
+      return;
+    }
     await this.actualApiClient.runBankSync();
   }
 

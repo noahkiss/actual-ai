@@ -1,6 +1,6 @@
 import type {
   TransactionEntity,
-} from '@actual-app/core/types/models';
+} from '@actual-app/core/src/types/models';
 import type {
   ActualApiServiceI,
   TransactionServiceI,

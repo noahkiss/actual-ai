@@ -1,4 +1,4 @@
-import { CategoryEntity, TransactionEntity } from '@actual-app/core/types/models';
+import { CategoryEntity, TransactionEntity } from '@actual-app/core/src/types/models';
 import type {
   ProcessingStrategyI, UnifiedResponse,
 } from '../../types';
