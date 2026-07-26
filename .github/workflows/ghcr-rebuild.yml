@@ -35,15 +35,14 @@ jobs:
             echo "::notice::@actual-app/api $CURRENT is up to date"
           fi
 
+      # Only refreshes the lockfile in the working tree. The commit is deferred until
+      # after the image is actually published -- committing first latches a failure:
+      # the next run sees CURRENT==LATEST, skips the build, and the image stays stale
+      # forever. That is exactly how :latest sat at @actual-app/api 26.4.0 from
+      # 2026-04-15 to 2026-07-26 while the lockfile advanced to 26.7.0.
       - name: Update lockfile
         if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          npm update @actual-app/api
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git diff --cached --quiet || git commit -m "chore: update @actual-app/api to ${{ steps.check.outputs.latest }}"
-          git push
+        run: npm update @actual-app/api
 
       - name: Set up QEMU
         if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
@@ -71,3 +70,19 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/actual-ai:latest
             ghcr.io/${{ github.repository_owner }}/actual-ai:api-${{ steps.check.outputs.latest }}
+          # Links the GHCR package to this repo, which is what grants GITHUB_TOKEN
+          # write access to it. Without the link the push fails with
+          # "denied: permission_denied: write_package".
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Commit lockfile
+        if: (steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --cached --quiet || {
+            git commit -m "chore: update @actual-app/api to ${{ steps.check.outputs.latest }}"
+            git push
+          }
