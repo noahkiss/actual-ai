@@ -25,7 +25,6 @@ describe('LlmService OpenRouter tool-calling toggle', () => {
       create: () => ({}) as LanguageModel,
       getProvider: () => 'openrouter',
       getModelProvider: () => 'openrouter',
-      isFallbackMode: () => false,
     };
     const rateLimiter = new RateLimiter();
     rateLimiter.executeWithRateLimiting = async <T>(
@@ -33,7 +32,7 @@ describe('LlmService OpenRouter tool-calling toggle', () => {
       op: () => Promise<T>,
     ): Promise<T> => op();
     const toolService: ToolServiceI = {
-      getTools: () => ({ freeWebSearch: {} as never }),
+      getTools: () => ({ webSearch: {} as never }),
       search: () => Promise.resolve('ok'),
     };
 
@@ -63,7 +62,6 @@ describe('LlmService OpenRouter tool-calling toggle', () => {
       create: () => ({}) as LanguageModel,
       getProvider: () => 'openrouter',
       getModelProvider: () => 'openrouter',
-      isFallbackMode: () => false,
     };
     const rateLimiter = new RateLimiter();
     rateLimiter.executeWithRateLimiting = async <T>(
@@ -71,7 +69,7 @@ describe('LlmService OpenRouter tool-calling toggle', () => {
       op: () => Promise<T>,
     ): Promise<T> => op();
     const toolService: ToolServiceI = {
-      getTools: () => ({ freeWebSearch: {} as never }),
+      getTools: () => ({ webSearch: {} as never }),
       search: () => Promise.resolve('ok'),
     };
 

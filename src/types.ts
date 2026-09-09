@@ -19,7 +19,6 @@ export interface LlmModelI {
 export interface LlmModelFactoryI {
   create(): LanguageModel;
   getProvider(): string;
-  isFallbackMode(): boolean;
   getModelProvider(): string;
 }
 
@@ -61,10 +60,6 @@ export interface ActualApiServiceI {
 
 export interface TransactionServiceI {
   processTransactions(): Promise<void>;
-}
-
-export interface NotesMigratorI {
-  migrateToTags(): Promise<void>;
 }
 
 export interface ActualAiServiceI {

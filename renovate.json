@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":disableDependencyDashboard"
+  ],
+  "enabledManagers": ["npm"],
+  "packageRules": [
+    {
+      "matchPackageNames": ["*"],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["@actual-app/api", "@actual-app/core"],
+      "enabled": true,
+      "groupName": "actual-app",
+      "groupSlug": "actual-app",
+      "rangeStrategy": "bump",
+      "separateMajorMinor": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": false
+  }
+}

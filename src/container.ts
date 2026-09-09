@@ -21,6 +21,7 @@ import {
   isFeatureEnabled,
   llmProvider,
   llmTimeoutMs,
+  llmTemperature,
   notGuessedTag,
   ollamaBaseURL,
   ollamaModel,
@@ -46,7 +47,6 @@ import LlmService from './llm-service';
 import ToolService from './utils/tool-service';
 import SimilarityCalculator from './similarity-calculator';
 import CategorySuggestionOptimizer from './category-suggestion-optimizer';
-import NotesMigrator from './transaction/notes-migrator';
 import TagService from './transaction/tag-service';
 import RuleMatchStrategy from './transaction/processing-strategy/rule-match-strategy';
 import ExistingCategoryStrategy from './transaction/processing-strategy/existing-category-strategy';
@@ -59,7 +59,6 @@ import RateLimiter from './utils/rate-limiter';
 
 // Create tool service if API key is available and tools are enabled
 export function createToolService(): ToolService | undefined {
-  // freeWebSearch does not require ValueSerp; only the paid `webSearch` does.
   return getEnabledTools().length > 0 ? new ToolService(valueSerpApiKey) : undefined;
 }
 
@@ -113,6 +112,7 @@ const llmService = new LlmService(
   {
     timeoutMs: llmTimeoutMs,
     openrouterEnableToolCalling,
+    temperature: llmTemperature,
     requestsPerMinuteOverride,
     tokensPerMinuteOverride,
   },
@@ -157,15 +157,9 @@ const transactionService = new TransactionService(
   isDryRun,
 );
 
-const notesMigrator = new NotesMigrator(
-  actualApiService,
-  tagService,
-);
-
 const actualAi = new ActualAiService(
   transactionService,
   actualApiService,
-  notesMigrator,
 );
 
 export default actualAi;

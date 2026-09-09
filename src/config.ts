@@ -25,6 +25,12 @@ export const llmTimeoutMs = Number.isFinite(parsedLlmTimeoutMs) && parsedLlmTime
   ? parsedLlmTimeoutMs
   : 120_000;
 export const openrouterEnableToolCalling = process.env.OPENROUTER_ENABLE_TOOL_CALLING === 'true';
+// Some models reject an explicit temperature (GPT-5 accepts the default of 1 only), so allow
+// overriding it. Unset keeps the previous hardcoded values.
+const parsedLlmTemperature = Number.parseFloat(process.env.LLM_TEMPERATURE ?? '');
+export const llmTemperature = Number.isFinite(parsedLlmTemperature)
+  ? parsedLlmTemperature
+  : undefined;
 export const anthropicApiKey = process.env.ANTHROPIC_API_KEY ?? '';
 export const anthropicBaseURL = process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1';
 export const anthropicModel = process.env.ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-latest';
@@ -128,22 +134,11 @@ function registerStandardFeatures() {
 }
 
 function registerToolFeatures() {
-  const legacyTools = (process.env.ENABLED_TOOLS ?? '').split(',')
-    .map((tool) => tool.trim())
-    .filter(Boolean);
-
   features.webSearch = {
-    enabled: enabledFeatures.includes('webSearch') || legacyTools.includes('webSearch'),
+    enabled: enabledFeatures.includes('webSearch'),
     defaultValue: false,
     description: 'Enable web search capability for merchant lookup',
     options: ['webSearch'],
-  };
-
-  features.freeWebSearch = {
-    enabled: enabledFeatures.includes('freeWebSearch') || legacyTools.includes('freeWebSearch'),
-    defaultValue: false,
-    description: 'Enable free web search capability for merchant lookup (self-hosted alternative to ValueSerp)',
-    options: ['freeWebSearch'],
   };
 
   // Additional tools can be added here following the same pattern

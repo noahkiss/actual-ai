@@ -15,11 +15,11 @@ export default class LlmService implements LlmServiceI {
 
   private readonly toolService?: ToolServiceI;
 
-  private readonly isFallbackMode;
-
   private readonly timeoutMs: number;
 
   private readonly openrouterEnableToolCalling: boolean;
+
+  private readonly temperature: number | undefined;
 
   constructor(
     llmModelFactory: LlmModelFactoryI,
@@ -29,18 +29,19 @@ export default class LlmService implements LlmServiceI {
     options?: {
       timeoutMs?: number;
       openrouterEnableToolCalling?: boolean;
+      temperature?: number;
       requestsPerMinuteOverride?: number | null;
       tokensPerMinuteOverride?: number | null;
     },
   ) {
     const factory = llmModelFactory;
     this.model = factory.create();
-    this.isFallbackMode = factory.isFallbackMode();
     this.provider = factory.getProvider();
     this.rateLimiter = rateLimiter;
     this.toolService = toolService;
     this.timeoutMs = options?.timeoutMs ?? 120_000;
     this.openrouterEnableToolCalling = options?.openrouterEnableToolCalling ?? false;
+    this.temperature = options?.temperature;
 
     // Resolve effective rate limits per axis with trichotomy:
     //   override === null      → fall back to provider default
@@ -96,35 +97,17 @@ export default class LlmService implements LlmServiceI {
 
   public async ask(prompt: string): Promise<UnifiedResponse> {
     try {
-      console.log(`Making LLM request to ${this.provider}${this.isFallbackMode ? ' (fallback mode)' : ''}`);
+      console.log(`Making LLM request to ${this.provider}`);
 
-      if (this.isFallbackMode) {
-        const response = await this.askUsingFallbackModel(prompt);
-        const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-        if (!uuidRegex.test(response)) {
-          console.warn('If you are using ollama and you see it all the time, check the ollama api logs.'
-              + 'Maybe you need to use bigger context window');
-          throw new Error(`Could not foud category in LLM response: ${response}`);
-        }
-        return {
-          type: 'existing',
-          categoryId: response,
-        };
-      }
-
-      return this.rateLimiter.executeWithRateLimiting(this.provider, async () => {
+      return await this.rateLimiter.executeWithRateLimiting(this.provider, async () => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-        // Some OpenAI-compatible gateways/models (notably via OpenRouter) don't reliably support
-        // tool/function-calling. We still keep ToolService around for manual/pre-prompt searches,
-        // but disable model tool-calling to avoid malformed outputs.
-        const disableOpenRouterTools = this.provider === 'openrouter' && !this.openrouterEnableToolCalling;
-        const tools = disableOpenRouterTools ? undefined : this.toolService?.getTools();
+        const tools = this.supportsToolCalling() ? this.toolService?.getTools() : undefined;
         try {
           const { text } = await generateText({
             model: this.model,
             prompt,
-            temperature: 0.2,
+            temperature: this.temperature ?? 0.2,
             tools,
             maxSteps: tools ? 3 : 1,
             abortSignal: controller.signal,
@@ -132,12 +115,7 @@ export default class LlmService implements LlmServiceI {
 
           // Only wrap parsing/validation errors; transport/provider errors must bubble up so the
           // RateLimiter can apply provider-specific backoff/retry behavior.
-          try {
-            return parseLlmResponse(text);
-          } catch (error) {
-            console.error('LLM response validation failed:', error);
-            throw new Error('Invalid response format from LLM');
-          }
+          return this.parseResponse(text);
         } finally {
           clearTimeout(timer);
         }
@@ -149,26 +127,37 @@ export default class LlmService implements LlmServiceI {
     }
   }
 
-  public async askUsingFallbackModel(prompt: string): Promise<string> {
-    return this.rateLimiter.executeWithRateLimiting(
-      this.provider,
-      async () => {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-        console.log(`Sending text generation request to ${this.provider}`);
-        try {
-          const { text } = await generateText({
-            model: this.model,
-            prompt,
-            temperature: 0.1,
-            abortSignal: controller.signal,
-          });
+  /**
+   * Ollama models cannot call tools at all, and OpenAI-compatible gateways (notably OpenRouter)
+   * do it unreliably enough to produce malformed output. ToolService stays available either way
+   * for searches run before the prompt is built.
+   */
+  private supportsToolCalling(): boolean {
+    if (this.provider === 'ollama') {
+      return false;
+    }
+    return this.provider !== 'openrouter' || this.openrouterEnableToolCalling;
+  }
 
-          return text.replace(/(\r\n|\n|\r|"|')/gm, '');
-        } finally {
-          clearTimeout(timer);
-        }
-      },
-    );
+  /**
+   * Models answer with whatever they feel like: the documented JSON object, that JSON wrapped in
+   * prose or code fences, or a bare category id. Parse the structured answer first and only fall
+   * back to fishing an id out of the text.
+   */
+  private parseResponse(text: string): UnifiedResponse {
+    try {
+      return parseLlmResponse(text);
+    } catch {
+      const categoryId = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(text);
+      if (categoryId) {
+        return { type: 'existing', categoryId: categoryId[0] };
+      }
+
+      if (this.provider === 'ollama') {
+        console.warn('If you see this all the time, check the ollama api logs. '
+          + 'Maybe you need to use a bigger context window.');
+      }
+      throw new Error(`Could not find category in LLM response: ${text}`);
+    }
   }
 }

@@ -39,14 +39,6 @@ When enabled, the LLM can suggest entirely new categories for transactions it ca
 
 Using the ValueSerp API, the system can search the web for information about unfamiliar merchants to help the LLM make better categorization decisions.
 
-#### 🔎 Free web search alternative
-
-A self-hosted alternative to ValueSerp that uses free public search API (DuckDuckGo) to search for merchant information without requiring an API key or deploying any additional app/service. Just add `freeWebSearch` to your FEATURES array:
-
-```
-FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "freeWebSearch"]'
-```
-
 #### 🔄 Re-run missed transactions
 
 Re-process transactions previously marked as unclassified.
@@ -77,7 +69,7 @@ services:
       ACTUAL_BUDGET_ID: your_actual_budget_sync_id # This is the ID from Settings → Show advanced settings → Sync ID
       CLASSIFICATION_SCHEDULE_CRON: 0 */4 * * * # How often to run classification.
       LLM_PROVIDER: openai # Can be "openai", "openrouter", "anthropic", "google-generative-ai", "ollama" or "groq"
-      FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "freeWebSearch", "suggestNewCategories"]'
+      FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "suggestNewCategories"]'
 #      VALUESERP_API_KEY: your_valueserp_api_key # API key for ValueSerp, required if webSearch tool is enabled
 #      OPENAI_API_KEY:  # optional. required if you want to use the OpenAI API
 #      OPENAI_MODEL:  # optional. required if you want to use a specific model, default is "gpt-5-mini"
@@ -89,6 +81,7 @@ services:
 #      OPENROUTER_TITLE:  # optional. default: "actual-ai"
 #      LLM_TIMEOUT_MS:  # optional. request timeout in ms for LLM calls, default: 120000
 #      OPENROUTER_ENABLE_TOOL_CALLING:  # optional. "true" to allow model tool-calling on openrouter, default: false
+#      LLM_TEMPERATURE:  # optional. temperature for LLM calls, e.g. 1 for models that reject other values
 #      ANTHROPIC_API_KEY:  # optional. required if you want to use the Anthropic API
 #      ANTHROPIC_MODEL:  # optional. required if you want to use a specific model, default is "claude-3-5-sonnet-latest"
 #      ANTHROPIC_BASE_URL:  # optional. default: "https://api.anthropic.com/v1
@@ -113,21 +106,32 @@ You can configure features using `FEATURES` (JSON array) or `ENABLED_FEATURES` (
 The `FEATURES` environment variable accepts a JSON array of feature names to enable:
 
 ```
-FEATURES='["freeWebSearch", "suggestNewCategories", "classifyOnStartup", "syncAccountsBeforeClassify"]'
+FEATURES='["suggestNewCategories", "classifyOnStartup", "syncAccountsBeforeClassify"]'
 
 # Equivalent:
-ENABLED_FEATURES='freeWebSearch,suggestNewCategories,classifyOnStartup,syncAccountsBeforeClassify'
+ENABLED_FEATURES='suggestNewCategories,classifyOnStartup,syncAccountsBeforeClassify'
 ```
 
 Available features:
 - `webSearch` - Enable web search for merchant information
-- `freeWebSearch` - Enable free web search for merchant information (self-hosted alternative to ValueSerp)
 - `suggestNewCategories` - Allow suggesting new categories for transactions
 - `classifyOnStartup` - Run classification when the application starts
 - `syncAccountsBeforeClassify` - Sync accounts before running classification
 - `dryRun` - Run in dry run mode (enabled by default)
 - `rerunMissedTransactions` - Re-process transactions previously marked as unclassified
 - `disableRateLimiter` - Disable Rate Limiter
+
+## Scheduling
+
+With `CLASSIFICATION_SCHEDULE_CRON` set, the container stays up and runs every scheduled
+classification in a fresh child process. `@actual-app/api` keeps state in module-level singletons
+that survive `shutdown()`, and in a container running for weeks that state drifts until incremental
+sync reports no new messages and imports quietly stop. A new process per run keeps that state fresh
+without needing a restart. Logs from the run appear as usual, and a schedule that fires while the
+previous run is still going is skipped.
+
+Without a cron schedule, `classifyOnStartup` classifies once and the process exits — the right shape
+when an external scheduler owns the timing.
 
 ## Rate Limit Overrides
 
@@ -194,7 +198,7 @@ This feature is particularly useful when you have transactions that don't fit yo
 
 The system supports various tools that can be enabled to enhance the LLM's capabilities:
 
-1. Enable tools by including them in the `FEATURES` array or by setting `ENABLED_TOOLS`
+1. Enable tools by including them in the `FEATURES` array
 2. Provide any required API keys for the tools you want to use
 
 Currently supported tools:
@@ -204,7 +208,7 @@ Currently supported tools:
 The webSearch tool uses the ValueSerp API to search for information about merchants that the LLM might not be familiar with, providing additional context for categorization decisions.
 
 To use this tool:
-1. Include `webSearch` in your `FEATURES` array or `ENABLED_TOOLS` list
+1. Include `webSearch` in your `FEATURES` array
 2. Provide your ValueSerp API key as `VALUESERP_API_KEY` (required)
 
 This is especially helpful for:
